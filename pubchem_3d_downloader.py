@@ -2,6 +2,7 @@ import pandas as pd
 import pubchempy as pcp
 import requests
 import argparse
+import os
 
 
 def search_pubchem(compound: str) -> int:
@@ -38,32 +39,30 @@ def main(csv_file: str) -> None:
         return
 
     # Loop through DataFrame and search PubChem for each compound
-    cids = []
-    for index, row in df.iterrows():
-        compound_name = row['compound_name']
-        cid = search_pubchem(compound_name)
-        cids.append(cid)
-    df['cid'] = cids
+    # cids = []
+    # for index, row in df.iterrows():
+    #     compound_name = row['compound_name']
+    #     cid = search_pubchem(compound_name)
+    #     cids.append(cid)
+    # df['cid'] = cids
 
     # Loop through DataFrame and download the 3D structure of each compound
     for index, row in df.iterrows():
-        compound_name = row['compound_name']
         cid = row['cid']
-        if cid is None:
-            print(f"Error: No CID found for {compound_name}")
-            continue
 
         sdf = download_sdf(cid)
         if sdf is None:
-            print(f"Error: Unable to download SDF for {compound_name}")
+            print(f"Error: Unable to download SDF for {cid}")
             continue
 
         try:
-            with open(f'{compound_name}.sdf', 'w') as f:
+            os.makedirs("./downloaded_sdf", exist_ok=True)
+
+            with open(f'./downloaded_sdf/{cid}.sdf', 'w') as f:
                 f.write(sdf)
-            print(f"Downloaded SDF for {compound_name}")
+            print(f"Downloaded SDF for {cid}")
         except IOError as e:
-            print(f"Error saving SDF for {compound_name}: {e}")
+            print(f"Error saving SDF for {cid}: {e}")
 
 
 if __name__ == '__main__':
