@@ -15,33 +15,26 @@ def search_pubchem(compound: str) -> int:
         return None
 
 
-def download_sdf3d(cid: int) -> str:
+def download_sdf(cid: int, download_3d: bool = True) -> str:
     """Download the 3D structure of a compound in SDF format from PubChem and return the SDF text."""
     try:
-        url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF?record_type=3d'
+        if download_3d:
+            url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF?record_type=3d'
+        else:
+            url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF'
         response = requests.get(url)
         response.raise_for_status()
         return response.text
     except (requests.exceptions.RequestException, pcp.PubChemHTTPError) as e:
-        print(f"Error downloading SDF for CID {cid}: {e}")
         return None
 
-def download_sdf2d(cid: int) -> str:
-    """Download the 3D structure of a compound in SDF format from PubChem and return the SDF text."""
-    try:
-        url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF'
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.text
-    except (requests.exceptions.RequestException, pcp.PubChemHTTPError) as e:
-        print(f"Error downloading SDF for CID {cid}: {e}")
-        return None
-
-def log_error(cid: int, message: str) -> None:
+def log_error(cid: int, message: str, download_dir = ".") -> None:
     with open('./error.log', 'a') as f:
         f.write(f"{cid}: {message}\n")
 
-    with open('./failed_cids.txt', 'a') as f:
+    print(f"Error: {message} for {cid}")
+
+    with open(f'{download_dir}/failed_cids.txt', 'a') as f:
         f.write(f"{cid}\n")
 
 def main(csv_file: str) -> None:
@@ -75,18 +68,18 @@ def main(csv_file: str) -> None:
         cid = row['cid']
 
         try:
-            sdf3d = download_sdf3d(cid)
+            sdf3d = download_sdf(cid)
         except Exception as e:
             sdf3d = None
 
         if sdf3d is None:
             try:
-                sdf2d = download_sdf2d(cid)
+                sdf2d = download_sdf(cid, download_3d=False)
             except Exception as e:
                 sdf2d = None
 
             if sdf2d is None:
-                log_error(cid, "Failed to download 3D and 2D SDF")
+                log_error(cid, "Failed to download 3D and 2D SDF", csv_dir)
                 continue
 
             try:
@@ -95,7 +88,7 @@ def main(csv_file: str) -> None:
                 print(f"Downloaded 2D SDF for {cid}")
             except IOError as e:
                 print(f"Error saving SDF for {cid}: {e}")
-                log_error(cid, "Failed to save SDF")
+                log_error(cid, "Failed to save SDF", csv_dir)
             continue
 
         try:
@@ -104,7 +97,7 @@ def main(csv_file: str) -> None:
             print(f"Downloaded 3D SDF for {cid}")
         except IOError as e:
             print(f"Error saving SDF for {cid}: {e}")
-            log_error(cid, "Failed to save SDF")
+            log_error(cid, "Failed to save SDF", csv_dir)
 
 
 if __name__ == '__main__':
