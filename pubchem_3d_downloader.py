@@ -18,7 +18,7 @@ def search_pubchem(compound: str) -> int:
 def download_sdf(cid: int) -> str:
     """Download the 3D structure of a compound in SDF format from PubChem and return the SDF text."""
     try:
-        url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF'
+        url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF?record_type=3d'
         response = requests.get(url)
         response.raise_for_status()
         return response.text
