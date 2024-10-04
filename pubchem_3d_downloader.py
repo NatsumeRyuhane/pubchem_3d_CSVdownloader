@@ -15,7 +15,7 @@ def search_pubchem(compound: str) -> int:
         return None
 
 
-def download_sdf(cid: int) -> str:
+def download_sdf3d(cid: int) -> str:
     """Download the 3D structure of a compound in SDF format from PubChem and return the SDF text."""
     try:
         url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF?record_type=3d'
@@ -26,6 +26,23 @@ def download_sdf(cid: int) -> str:
         print(f"Error downloading SDF for CID {cid}: {e}")
         return None
 
+def download_sdf2d(cid: int) -> str:
+    """Download the 3D structure of a compound in SDF format from PubChem and return the SDF text."""
+    try:
+        url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/SDF'
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.text
+    except (requests.exceptions.RequestException, pcp.PubChemHTTPError) as e:
+        print(f"Error downloading SDF for CID {cid}: {e}")
+        return None
+
+def log_error(cid: int, message: str) -> None:
+    with open('./error.log', 'a') as f:
+        f.write(f"{cid}: {message}\n")
+
+    with open('./failed_cids.txt', 'a') as f:
+        f.write(f"{cid}\n")
 
 def main(csv_file: str) -> None:
     """Main function that reads a CSV file of compound names, 
@@ -47,22 +64,47 @@ def main(csv_file: str) -> None:
     # df['cid'] = cids
 
     # Loop through DataFrame and download the 3D structure of each compound
+    csv_dir = os.path.dirname(os.path.abspath(args.csv_file))
+
+    os.makedirs(str(csv_dir) + "/downloaded_sdf/3D", exist_ok=True)
+    os.makedirs(str(csv_dir) + "/downloaded_sdf/2D", exist_ok=True)
+    dir2D = str(csv_dir) + "/downloaded_sdf/2D"
+    dir3D = str(csv_dir) + "/downloaded_sdf/3D"
+
     for index, row in df.iterrows():
         cid = row['cid']
 
-        sdf = download_sdf(cid)
-        if sdf is None:
-            print(f"Error: Unable to download SDF for {cid}")
+        try:
+            sdf3d = download_sdf3d(cid)
+        except Exception as e:
+            sdf3d = None
+
+        if sdf3d is None:
+            try:
+                sdf2d = download_sdf2d(cid)
+            except Exception as e:
+                sdf2d = None
+
+            if sdf2d is None:
+                log_error(cid, "Failed to download 3D and 2D SDF")
+                continue
+
+            try:
+                with open(f'{dir2D}/{cid}.sdf', 'w') as f:
+                    f.write(sdf2d)
+                print(f"Downloaded 2D SDF for {cid}")
+            except IOError as e:
+                print(f"Error saving SDF for {cid}: {e}")
+                log_error(cid, "Failed to save SDF")
             continue
 
         try:
-            os.makedirs("./downloaded_sdf", exist_ok=True)
-
-            with open(f'./downloaded_sdf/{cid}.sdf', 'w') as f:
-                f.write(sdf)
-            print(f"Downloaded SDF for {cid}")
+            with open(f'{dir3D}/{cid}.sdf', 'w') as f:
+                f.write(sdf3d)
+            print(f"Downloaded 3D SDF for {cid}")
         except IOError as e:
             print(f"Error saving SDF for {cid}: {e}")
+            log_error(cid, "Failed to save SDF")
 
 
 if __name__ == '__main__':
